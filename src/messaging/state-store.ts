@@ -7,6 +7,9 @@ export interface MessageStateCache {
   elapsedMs?: number;
   tokens?: number;
   tokensPerSec?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheRead?: number;
   contextUsage?: string;
   modelName?: string;
 }
@@ -19,7 +22,6 @@ class MessageStateStore {
   }
 
   public set(state: MessageStateCache): void {
-    // 保持最多 500 条消息状态，防内存泄漏
     if (this.cache.size > 500) {
       const firstKey = this.cache.keys().next().value;
       if (firstKey) this.cache.delete(firstKey);

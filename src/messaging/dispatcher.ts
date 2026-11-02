@@ -21,10 +21,13 @@ export async function dispatchInboundTelegramMessage(params: InboundTelegramMess
   const client = TelegramClient.fromConfig(params.config);
   const scheduler = new TypewriterScheduler(client, params.config.throttleIntervalMs);
 
+  const sessionKey = `agent:main:telegram:${params.chatId}${params.threadId ? `:topic:${params.threadId}` : ''}`;
+
   const controller = new TelegramStreamingCardController({
     client,
     scheduler,
     chatId: params.chatId,
+    sessionKey,
     replyToMessageId: params.messageId,
     threadId: params.threadId,
     instantPlaceholder: params.config.instantPlaceholder,
@@ -35,7 +38,6 @@ export async function dispatchInboundTelegramMessage(params: InboundTelegramMess
 
   // 2. 构造 Inbound 上下文
   const peerId = String(params.chatId);
-  const sessionKey = `agent:main:telegram:${params.chatId}${params.threadId ? `:topic:${params.threadId}` : ''}`;
 
   const inboundCtx = runtime.channel.reply.finalizeInboundContext({
     Body: params.text,

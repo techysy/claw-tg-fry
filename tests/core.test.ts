@@ -37,7 +37,7 @@ describe('claw-tg-fry Render Engine', () => {
       contextUsage: '4.8k/128k',
       modelName: '梁文锋⚡️',
     });
-    expect(footer).toBe('⏱ 1.4s · ⚡️ 1,240 tokens · 82 t/s · 🌊 上下文 4.8k/128k · 梁文锋⚡️');
+    expect(footer).toBe('🍤 · ⏱ 1.4s · ⚡️ 1,240 tok · 82 t/s · 🌊 4.8k/128k · 梁文锋⚡️');
   });
 
   it('appends metric footer with HTML code wrapper', () => {
@@ -50,7 +50,7 @@ describe('claw-tg-fry Render Engine', () => {
       },
       'HTML',
     );
-    expect(appended).toContain('Hello response\n\n<code>⏱ 1.2s · ⚡️ 500 tokens</code>');
+    expect(appended).toContain('Hello response\n\n<code>🍤 · ⏱ 1.2s · ⚡️ 500 tok</code>');
   });
 });
 
