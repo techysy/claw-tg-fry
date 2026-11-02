@@ -2,7 +2,8 @@ import type { ChannelOutboundAdapter } from 'openclaw/plugin-sdk/channel-send-re
 import { TelegramClient } from '../../core/client';
 import type { TelegramAccountConfig } from '../../core/config-schema';
 import { markdownToTelegramHtml, splitReasoningText, renderExpandableQuote } from '../../render/escape';
-import { formatMetricFooter, appendMetricFooter } from '../../render/footer';
+import { appendFooterSections, formatMetricFooter, appendMetricFooter } from '../../render/segments/footer';
+import { resolveFooterConfig } from '../../render/config/footer-config';
 
 export const telegramOutbound: ChannelOutboundAdapter = {
   deliveryMode: 'direct',
@@ -10,7 +11,7 @@ export const telegramOutbound: ChannelOutboundAdapter = {
   textChunkLimit: 4096,
 
   sendText: async ({ cfg, to, text, accountId, replyToId, threadId }) => {
-    const rawCfg = cfg as { channels?: { telegram?: TelegramAccountConfig } };
+    const rawCfg = cfg as { channels?: { telegram?: TelegramAccountConfig & { footer?: unknown } } };
     const config = rawCfg?.channels?.telegram;
     if (!config?.botToken) {
       throw new Error('Telegram Bot Token is not configured');
@@ -29,6 +30,10 @@ export const telegramOutbound: ChannelOutboundAdapter = {
     }
     finalHtml += markdownToTelegramHtml(answerText || text);
 
+    // 配置驱动的 footer（默认全关 → 不追加）
+    const footer = resolveFooterConfig(config.footer ?? null);
+    finalHtml = appendFooterSections(finalHtml, footer, undefined, {}, 'HTML');
+
     const res = await client.bot.api.sendMessage(chatId, finalHtml, {
       reply_parameters: replyId ? { message_id: replyId } : undefined,
       message_thread_id: thread,
@@ -43,7 +48,7 @@ export const telegramOutbound: ChannelOutboundAdapter = {
   },
 
   sendMedia: async ({ cfg, to, text, mediaUrl, accountId, replyToId, threadId }) => {
-    const rawCfg = cfg as { channels?: { telegram?: TelegramAccountConfig } };
+    const rawCfg = cfg as { channels?: { telegram?: TelegramAccountConfig & { footer?: unknown } } };
     const config = rawCfg?.channels?.telegram;
     if (!config?.botToken) {
       throw new Error('Telegram Bot Token is not configured');
@@ -87,3 +92,5 @@ export const telegramOutbound: ChannelOutboundAdapter = {
     };
   },
 };
+
+export { formatMetricFooter, appendMetricFooter };

@@ -4,6 +4,11 @@ import { TelegramClient } from '../core/client';
 import { TypewriterScheduler } from './typewriter';
 import { TelegramStreamingCardController } from './streaming-controller';
 import { getTelegramRuntime } from '../core/runtime-store';
+import { resolveFooterConfig } from '../render/config/footer-config';
+import { resolvePanelSettings } from '../render/config/panel-config';
+
+/** 本插件 id（用于读取 plugins.entries.<id>.config）。 */
+export const PLUGIN_ID = 'claw-tg-fry';
 
 export interface InboundTelegramMessageParams {
   cfg: OpenClawConfig;
@@ -23,6 +28,13 @@ export async function dispatchInboundTelegramMessage(params: InboundTelegramMess
 
   const sessionKey = `agent:main:telegram:${params.chatId}${params.threadId ? `:topic:${params.threadId}` : ''}`;
 
+  // 插件级配置优先（plugins.entries.claw-tg-fry.config），回落通道级（channels.telegram）
+  const rawCfg = params.cfg as unknown;
+  const footer = resolveFooterConfig(
+    readPluginFooter(rawCfg) ?? (params.config as { footer?: Parameters<typeof resolveFooterConfig>[0] }).footer,
+  );
+  const panel = resolvePanelSettings(rawCfg, PLUGIN_ID);
+
   const controller = new TelegramStreamingCardController({
     client,
     scheduler,
@@ -31,14 +43,15 @@ export async function dispatchInboundTelegramMessage(params: InboundTelegramMess
     replyToMessageId: params.messageId,
     threadId: params.threadId,
     instantPlaceholder: params.config.instantPlaceholder,
+    footer,
+    panel,
+    cfg: rawCfg,
   });
 
   // 1. 派发即建卡：1 秒内发送占位卡
   await controller.start();
 
   // 2. 构造 Inbound 上下文
-  const peerId = String(params.chatId);
-
   const inboundCtx = runtime.channel.reply.finalizeInboundContext({
     Body: params.text,
     Raw: {
@@ -80,4 +93,12 @@ export async function dispatchInboundTelegramMessage(params: InboundTelegramMess
       text: `⚠️ 处理异常: ${err instanceof Error ? err.message : String(err)}`,
     });
   }
+}
+
+/** 读插件级 footer（plugins.entries.<id>.config.footer）。 */
+function readPluginFooter(rawCfg: unknown): unknown {
+  if (!rawCfg || typeof rawCfg !== 'object') return undefined;
+  const entry = (rawCfg as { plugins?: { entries?: Record<string, unknown> } }).plugins?.entries?.[PLUGIN_ID];
+  if (!entry || typeof entry !== 'object') return undefined;
+  return (entry as { config?: { footer?: unknown } }).config?.footer;
 }

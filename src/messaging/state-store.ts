@@ -1,3 +1,7 @@
+import type { SessionMetrics } from '../core/metrics';
+import type { FooterConfig } from '../render/config/footer-config';
+import type { ResolvedPanelSettings } from '../render/config/panel-config';
+
 export interface MessageStateCache {
   chatId: number | string;
   messageId: number;
@@ -5,6 +9,11 @@ export interface MessageStateCache {
   reasoningText?: string;
   reasoningExpanded: boolean;
   elapsedMs?: number;
+  /** 本轮完整指标（footer / 运行指标弹窗共用）。 */
+  metrics?: SessionMetrics;
+  footer?: FooterConfig;
+  panel?: ResolvedPanelSettings;
+  /** 兼容旧字段（弹窗展示用）。 */
   tokens?: number;
   tokensPerSec?: number;
   inputTokens?: number;

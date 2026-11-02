@@ -1,11 +1,13 @@
-import type { OpenClawConfig, ReplyPayload } from 'openclaw/plugin-sdk/core';
 import type { TelegramClient } from '../core/client';
 import type { TypewriterScheduler } from './typewriter';
 import { renderExpandableQuote, markdownToTelegramHtml } from '../render/escape';
-import { appendMetricFooter } from '../render/footer';
+import { buildTerminalCardHtml } from '../render/segments/terminal-card';
 import { buildStandardActionKeyboard } from '../render/keyboard';
 import { messageStateStore } from './state-store';
-import { fetchSessionMetricsFromSqlite } from '../core/metrics';
+import { fetchSessionMetricsFromSqlite, type SessionMetrics } from '../core/metrics';
+import { resolveFooterConfig, type FooterConfig } from '../render/config/footer-config';
+import type { ResolvedPanelSettings } from '../render/config/panel-config';
+import { buildAliasTable } from '../render/segments/panel-alias';
 
 export interface TelegramStreamingCardParams {
   client: TelegramClient;
@@ -15,6 +17,12 @@ export interface TelegramStreamingCardParams {
   replyToMessageId?: number;
   threadId?: number;
   instantPlaceholder?: boolean;
+  /** 插件级 footer 配置（解析后）。缺省 = 全部关闭。 */
+  footer?: FooterConfig;
+  /** 面板配置（解析后）。 */
+  panel?: ResolvedPanelSettings;
+  /** OpenClaw 配置，用于解析模型上下文窗口。 */
+  cfg?: unknown;
 }
 
 export class TelegramStreamingCardController {
@@ -63,36 +71,20 @@ export class TelegramStreamingCardController {
     });
   }
 
-  public async complete(finalPayload?: ReplyPayload): Promise<void> {
+  public async complete(finalPayload?: { text?: string }): Promise<void> {
     const elapsedMs = Date.now() - this.startTime;
     const finalText = finalPayload?.text || this.currentText || '已完成。';
 
-    // 尝试拉取 OpenClaw SQLite 中的深度运行时指标
-    const sqliteMetrics = fetchSessionMetricsFromSqlite('main', this.params.sessionKey);
+    const metrics = fetchSessionMetricsFromSqlite('main', this.params.sessionKey, this.params.cfg);
+    const footer = this.params.footer ?? resolveFooterConfig(null);
 
-    const tokens = sqliteMetrics?.outputTokens ?? 32;
-    const tokensPerSec = sqliteMetrics?.tokensPerSecond ?? 24;
-    const inputK = sqliteMetrics?.inputTokens ? (sqliteMetrics.inputTokens / 1000).toFixed(1) : '4.3';
-    const contextUsage = `${inputK}k/128k`;
-    const modelName = sqliteMetrics?.model ? '梁文锋⚡️' : 'DeepSeek-Flash';
-
-    let displayContent = '';
-    if (this.reasoningText) {
-      displayContent += renderExpandableQuote(this.reasoningText, '💭 思考过程') + '\n\n';
-    }
-    displayContent += markdownToTelegramHtml(finalText);
-
-    displayContent = appendMetricFooter(
-      displayContent,
-      {
-        elapsedMs,
-        tokens,
-        tokensPerSec,
-        contextUsage,
-        modelName,
-      },
-      'HTML',
-    );
+    const displayContent = buildTerminalCardHtml(finalText, this.reasoningText, {
+      elapsedMs,
+      metrics,
+      footer,
+      panel: this.params.panel,
+      aliasTable: buildAliasTable(this.params.panel),
+    });
 
     const keyboard = buildStandardActionKeyboard({
       hasReasoning: Boolean(this.reasoningText),
@@ -131,13 +123,9 @@ export class TelegramStreamingCardController {
         reasoningText: this.reasoningText,
         reasoningExpanded: false,
         elapsedMs,
-        tokens,
-        tokensPerSec,
-        inputTokens: sqliteMetrics?.inputTokens,
-        outputTokens: sqliteMetrics?.outputTokens,
-        cacheRead: sqliteMetrics?.cacheRead,
-        contextUsage,
-        modelName,
+        metrics,
+        footer,
+        panel: this.params.panel,
       });
     }
   }

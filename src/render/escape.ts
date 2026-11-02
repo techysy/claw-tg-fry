@@ -18,7 +18,17 @@ export function escapeMarkdownV2(text: string): string {
 }
 
 /**
+ * Telegram HTML entity references (&#NNNN; / &#xHHHH;) are valid **only** when
+ * terminated with `;`. Bare `&NNN` / `&xHH` are rejected by the Bot API.
+ * This pass neutralises those so plain text like `?a=1&x2=2` stays sendable.
+ */
+export function escapeBareHtmlEntities(text: string): string {
+  return text.replace(/&(?!(?:#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);)/g, '&amp;');
+}
+
+/**
  * Convert standard Markdown syntax to Telegram-safe HTML format.
+ *
  * Handles:
  * - ```code blocks``` -> <pre><code>...</code></pre>
  * - `inline code` -> <code>...</code>
@@ -26,6 +36,9 @@ export function escapeMarkdownV2(text: string): string {
  * - *italic* / _italic_ -> <i>...</i>
  * - ~~strikethrough~~ -> <s>...</s>
  * - [text](url) -> <a href="url">text</a>
+ *
+ * Raw text is HTML-escaped before emphasis is re-applied, so `**加粗**`
+ * renders bold instead of being mangled.
  */
 export function markdownToTelegramHtml(markdown: string): string {
   if (!markdown) return '';
@@ -50,8 +63,9 @@ export function markdownToTelegramHtml(markdown: string): string {
     return pushPlaceholder(`<code>${escapeHtml(code)}</code>`);
   });
 
-  // 3. Escape raw HTML entities in the remaining text
-  text = escapeHtml(text);
+  // 3. Escape raw HTML entities and tags in the remaining text
+  //    (bare &NNN / &xHH are rejected by the Bot API; markdown emphasis below re-applies real markup)
+  text = escapeBareHtmlEntities(text).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   // 4. Bold: **text** or __text__
   text = text.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');

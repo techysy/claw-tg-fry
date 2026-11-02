@@ -1,8 +1,15 @@
 import type { Context } from 'grammy';
 import { messageStateStore } from './state-store';
-import { renderExpandableQuote } from '../render/escape';
-import { appendMetricFooter } from '../render/footer';
+import { buildTerminalCardHtml } from '../render/segments/terminal-card';
 import { buildStandardActionKeyboard } from '../render/keyboard';
+import { resolveFooterConfig } from '../render/config/footer-config';
+import { compactNumber, computeCacheHitRate } from '../render/segments/format';
+import { buildAliasTable } from '../render/segments/panel-alias';
+
+function pct(part: number | undefined, whole: number | undefined): string {
+  if (part == null || whole == null || whole <= 0) return '—';
+  return `${Math.round((part / whole) * 100)}%`;
+}
 
 export async function handleTelegramCallbackQuery(ctx: Context): Promise<void> {
   const data = ctx.callbackQuery?.data;
@@ -23,20 +30,18 @@ export async function handleTelegramCallbackQuery(ctx: Context): Promise<void> {
 
     cached.reasoningExpanded = !cached.reasoningExpanded;
 
-    let displayContent = '';
-    if (cached.reasoningExpanded) {
-      displayContent += renderExpandableQuote(`💭 思考过程:\n${cached.reasoningText}`, 'HTML') + '\n\n';
-    } else {
-      displayContent += `<i>💡 已包含思考推理过程（可通过下方按钮展开）</i>\n\n`;
-    }
-    displayContent += cached.mainText;
-
-    displayContent = appendMetricFooter(
-      displayContent,
+    // 展开态下重渲染（含面板与配置驱动的 footer，与终版一致）
+    const footer = cached.footer ?? resolveFooterConfig(null);
+    const displayContent = buildTerminalCardHtml(
+      cached.mainText,
+      cached.reasoningExpanded ? cached.reasoningText : '',
       {
-        elapsedMs: cached.elapsedMs,
+        elapsedMs: cached.elapsedMs ?? 0,
+        metrics: cached.metrics,
+        footer,
+        panel: cached.panel,
+        aliasTable: buildAliasTable(cached.panel),
       },
-      'HTML',
     );
 
     const keyboard = buildStandardActionKeyboard({
@@ -62,31 +67,38 @@ export async function handleTelegramCallbackQuery(ctx: Context): Promise<void> {
   // 2. 耗时与指标分析（原生居中 Alert 弹窗卡片）
   if (data === 'action:trace_info') {
     const cached = messageStateStore.get(chatId, messageId);
-    const sec = cached?.elapsedMs ? (cached.elapsedMs / 1000).toFixed(1) : '8.3';
-    const tokens = cached?.tokens ? cached.tokens.toLocaleString() : '32';
-    const tps = cached?.tokensPerSec ?? 24;
-    const ctxUsage = cached?.contextUsage ?? '4.3k/128k';
-    const model = cached?.modelName ?? 'DeepSeek-Flash (梁文锋⚡️)';
-    const input = cached?.inputTokens ? cached.inputTokens.toLocaleString() : '4,375';
-    const output = cached?.outputTokens ? cached.outputTokens.toLocaleString() : '32';
-    const cacheHit = cached?.cacheRead ? `${((cached.cacheRead / (cached.cacheRead + (cached.inputTokens || 1))) * 100).toFixed(1)}%` : '93.4%';
+    const metrics = cached?.metrics;
+    const sec = (cached?.elapsedMs ?? 0) / 1000;
 
-    const alertText = [
+    const tps = metrics?.tokensPerSecond ?? cached?.tokensPerSec;
+    const inputTokens = metrics?.inputTokens ?? cached?.inputTokens;
+    const outputTokens =
+      metrics?.outputTokensTotal ?? metrics?.outputTokens ?? cached?.outputTokens ?? cached?.tokens;
+    const ctxWindow = metrics?.contextTokens;
+    const cacheRead = metrics?.cacheRead ?? cached?.cacheRead;
+    const cacheWrite = metrics?.cacheWrite;
+    const model = metrics?.model ?? cached?.modelName;
+    const cacheHit = computeCacheHitRate({ cacheRead, cacheWrite, inputTokens });
+
+    const lines = [
       '🍤 OpenClaw · 性能与调度全景',
       '━━━━━━━━━━━━━━━━━━━━━━',
-      `⏱ 响应耗时: ${sec} 秒`,
-      `⚡ 生成速度: ${tps} tok/s`,
-      `🎫 消耗汇总: 输入 ${input} / 输出 ${output}`,
-      `🌊 上下文池: ${ctxUsage}`,
-      `💾 缓存命中: ${cacheHit}`,
-      `🤖 调度模型: ${model}`,
+      `⏱ 响应耗时: ${sec > 0 ? `${sec.toFixed(1)} 秒` : '—'}`,
+      `⚡ 生成速度: ${typeof tps === 'number' && tps > 0 ? `${Math.round(tps)} tok/s` : '—'}`,
+      `🎫 消耗汇总: 输入 ${inputTokens != null ? compactNumber(inputTokens) : '—'} / 输出 ${
+        outputTokens != null ? compactNumber(outputTokens) : '—'
+      }`,
+      `🌊 上下文池: ${
+        ctxWindow != null && inputTokens != null
+          ? `${compactNumber(inputTokens)}/${compactNumber(ctxWindow)} (${pct(inputTokens, ctxWindow)})`
+          : cached?.contextUsage ?? '—'
+      }`,
+      `💾 缓存命中: ${cacheHit != null ? `${cacheHit}%` : '—'}`,
+      `🤖 调度模型: ${model ?? '—'}`,
       '🚀 调度引擎: claw-tg-fry v1.0.0',
-    ].join('\n');
+    ];
 
-    await ctx.answerCallbackQuery({
-      text: alertText,
-      show_alert: true,
-    });
+    await ctx.answerCallbackQuery({ text: lines.join('\n'), show_alert: true });
     return;
   }
 

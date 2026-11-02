@@ -1,7 +1,7 @@
 import type { ChannelPlugin, OpenClawConfig } from 'openclaw/plugin-sdk/core';
 import { buildChannelConfigSchema } from 'openclaw/plugin-sdk/core';
 import type { TelegramAccount } from '../core/types';
-import { TelegramAccountConfigSchema } from '../core/config-schema';
+import { TelegramAccountConfigSchema, type TelegramAccountConfig } from '../core/config-schema';
 import { TelegramClient } from '../core/client';
 import { TelegramInboundAdapter } from './inbound';
 import { telegramOutbound } from '../messaging/outbound/outbound';
@@ -105,8 +105,8 @@ export const telegramPlugin: ChannelPlugin<TelegramAccount> = {
   gateway: {
     startAccount: async (ctx) => {
       ctx.log?.info(`[claw-tg-fry] Starting Telegram provider for account: ${ctx.accountId}`);
-      const rawCfg = ctx.cfg as { channels?: { telegram?: Record<string, unknown> } };
-      const config = rawCfg?.channels?.telegram as unknown as TelegramAccount['config'];
+      const rawCfg = ctx.cfg as { channels?: { telegram?: TelegramAccountConfig } };
+      const config = rawCfg?.channels?.telegram;
       if (!config?.botToken) {
         throw new Error('Telegram Bot Token is missing');
       }
