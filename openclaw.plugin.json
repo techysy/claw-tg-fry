@@ -1,0 +1,53 @@
+{
+121	  "id": "claw-tg-fry",
+122	  "description": "🍤 OpenClaw Telegram 通道插件——fry 流式卡片与打字机引擎（派发即建卡 · 动态节流调度 · 4096 智能分页 · 原生折叠与指标面板）",
+123	  "channels": ["telegram"],
+124	  "skills": [],
+125	  "configSchema": {
+126	    "$schema": "http://json-schema.org/draft-07/schema#",
+127	    "type": "object",
+128	    "properties": {
+129	      "botToken": {
+130	        "type": "string",
+131	        "title": "Telegram Bot Token",
+132	        "description": "从 @BotFather 获取的 Bot API Token"
+133	      },
+134	      "apiRoot": {
+135	        "type": "string",
+136	        "title": "API Root / Proxy Endpoint",
+137	        "description": "自定义 Telegram API 根地址（支持本地反代，默认 https://api.telegram.org）"
+138	      },
+139	      "connectionMode": {
+140	        "type": "string",
+141	        "enum": ["polling", "webhook"],
+142	        "title": "连接模式",
+143	        "description": "长轮询 polling（推荐，无需公网 IP）或 webhook"
+144	      },
+145	      "throttleIntervalMs": {
+146	        "type": "number",
+147	        "title": "打字机节流周期 (ms)",
+148	        "description": "流式卡片就地编辑节流刷新间隔，默认 900ms（防 429 限频）"
+149	      },
+150	      "instantPlaceholder": {
+151	        "type": "boolean",
+152	        "title": "派发即建卡",
+153	        "description": "收到用户提问后 1 秒内回复占位卡「🍤 正在思考...」（默认 true）"
+154	      },
+155	      "panel": {
+156	        "type": "object",
+157	        "properties": {
+158	          "unifiedPanelMinDuration": {
+159	            "type": "number",
+160	            "title": "面板耗时门槛（秒）",
+161	            "description": "指标 Footer 面板显示的耗时门槛（秒）：耗时 ≥ 此值或有思考/工具调用时显示，0 = 每条必出（默认 3）"
+162	          },
+163	          "modelAliases": {
+164	            "type": "object",
+165	            "title": "模型别名配置",
+166	            "description": "模型显示别名与峰谷价窗口映射"
+167	          }
+168	        }
+169	      }
+170	    }
+171	  }
+172	}
