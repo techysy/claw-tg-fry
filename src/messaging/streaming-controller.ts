@@ -1,7 +1,7 @@
 import type { OpenClawConfig, ReplyPayload } from 'openclaw/plugin-sdk/core';
 import type { TelegramClient } from '../core/client';
 import type { TypewriterScheduler } from './typewriter';
-import { renderExpandableQuote } from '../render/escape';
+import { renderExpandableQuote, markdownToTelegramHtml } from '../render/escape';
 import { appendMetricFooter } from '../render/footer';
 import { buildStandardActionKeyboard } from '../render/keyboard';
 import { messageStateStore } from './state-store';
@@ -51,9 +51,9 @@ export class TelegramStreamingCardController {
 
     let displayContent = '';
     if (this.reasoningText) {
-      displayContent += renderExpandableQuote(`💭 思考过程:\n${this.reasoningText}`, 'HTML') + '\n\n';
+      displayContent += renderExpandableQuote(this.reasoningText, '💭 思考过程 (生成中)') + '\n\n';
     }
-    displayContent += this.currentText || '🍤 正在生成回答...';
+    displayContent += markdownToTelegramHtml(this.currentText) || '🍤 正在生成回答...';
 
     this.params.scheduler.enqueue({
       chatId: this.params.chatId,
@@ -78,9 +78,9 @@ export class TelegramStreamingCardController {
 
     let displayContent = '';
     if (this.reasoningText) {
-      displayContent += `<i>💡 已包含思考推理过程（可通过下方按钮展开）</i>\n\n`;
+      displayContent += renderExpandableQuote(this.reasoningText, '💭 思考过程') + '\n\n';
     }
-    displayContent += finalText;
+    displayContent += markdownToTelegramHtml(finalText);
 
     displayContent = appendMetricFooter(
       displayContent,

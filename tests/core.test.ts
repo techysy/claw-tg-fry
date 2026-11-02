@@ -25,7 +25,7 @@ describe('claw-tg-fry Render Engine', () => {
   });
 
   it('renders expandable quote in HTML format', () => {
-    const quote = renderExpandableQuote('Thinking step by step...', 'HTML');
+    const quote = renderExpandableQuote('Thinking step by step...');
     expect(quote).toBe('<blockquote expandable>Thinking step by step...</blockquote>');
   });
 

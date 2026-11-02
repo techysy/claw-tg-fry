@@ -1,7 +1,8 @@
 import type { ChannelOutboundAdapter } from 'openclaw/plugin-sdk/channel-send-result';
 import { TelegramClient } from '../../core/client';
 import type { TelegramAccountConfig } from '../../core/config-schema';
-import { formatMetricFooter } from '../../render/footer';
+import { markdownToTelegramHtml, splitReasoningText, renderExpandableQuote } from '../../render/escape';
+import { formatMetricFooter, appendMetricFooter } from '../../render/footer';
 
 export const telegramOutbound: ChannelOutboundAdapter = {
   deliveryMode: 'direct',
@@ -20,7 +21,15 @@ export const telegramOutbound: ChannelOutboundAdapter = {
     const replyId = replyToId ? Number(replyToId) : undefined;
     const thread = threadId ? Number(threadId) : undefined;
 
-    const res = await client.bot.api.sendMessage(chatId, text, {
+    // 分离 reasoning 和正文并转换为 Telegram 原生 HTML 渲染
+    const { reasoningText, answerText } = splitReasoningText(text);
+    let finalHtml = '';
+    if (reasoningText) {
+      finalHtml += renderExpandableQuote(reasoningText, '💭 思考过程') + '\n\n';
+    }
+    finalHtml += markdownToTelegramHtml(answerText || text);
+
+    const res = await client.bot.api.sendMessage(chatId, finalHtml, {
       reply_parameters: replyId ? { message_id: replyId } : undefined,
       message_thread_id: thread,
       parse_mode: 'HTML',
@@ -59,7 +68,14 @@ export const telegramOutbound: ChannelOutboundAdapter = {
       };
     }
 
-    const res = await client.bot.api.sendMessage(chatId, text || '(empty)', {
+    const { reasoningText, answerText } = splitReasoningText(text);
+    let finalHtml = '';
+    if (reasoningText) {
+      finalHtml += renderExpandableQuote(reasoningText, '💭 思考过程') + '\n\n';
+    }
+    finalHtml += markdownToTelegramHtml(answerText || text || '(empty)');
+
+    const res = await client.bot.api.sendMessage(chatId, finalHtml, {
       reply_parameters: replyId ? { message_id: replyId } : undefined,
       message_thread_id: thread,
       parse_mode: 'HTML',
