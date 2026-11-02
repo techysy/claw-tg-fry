@@ -4,6 +4,7 @@ import type { TelegramAccount } from '../core/types';
 import { TelegramAccountConfigSchema } from '../core/config-schema';
 import { TelegramClient } from '../core/client';
 import { TelegramInboundAdapter } from './inbound';
+import { telegramOutbound } from '../messaging/outbound/outbound';
 
 const meta = {
   id: 'telegram',
@@ -31,6 +32,8 @@ export const telegramPlugin: ChannelPlugin<TelegramAccount> = {
     nativeCommands: true,
     blockStreaming: true,
   },
+
+  outbound: telegramOutbound,
 
   configSchema: buildChannelConfigSchema(
     TelegramAccountConfigSchema as unknown as Parameters<typeof buildChannelConfigSchema>[0],
@@ -129,7 +132,8 @@ export const telegramPlugin: ChannelPlugin<TelegramAccount> = {
         },
       });
 
-      await activeInbound.start();
+      // 挂住通道生命周期，直到网关发出 abortSignal
+      await activeInbound.start(ctx.abortSignal);
     },
 
     stopAccount: async (ctx) => {
@@ -141,3 +145,4 @@ export const telegramPlugin: ChannelPlugin<TelegramAccount> = {
     },
   },
 };
+

@@ -77,13 +77,42 @@ export class TelegramInboundAdapter {
     });
   }
 
-  public async start(): Promise<void> {
+  public async start(abortSignal?: AbortSignal): Promise<void> {
     if (this.isRunning) return;
     this.isRunning = true;
-    this.bot.start({
-      drop_pending_updates: true,
-      onStart: () => {},
-    });
+    try {
+      this.bot.catch((err) => {
+        console.warn('[claw-tg-fry] grammy bot error:', err);
+      });
+      await this.bot.init();
+
+      // 启动长轮询并挂住 Promise 直到 abortSignal 触发或调用 stop()
+      await new Promise<void>((resolve) => {
+        if (abortSignal?.aborted) {
+          resolve();
+          return;
+        }
+
+        const onAbort = () => {
+          void this.stop().then(() => resolve());
+        };
+        abortSignal?.addEventListener('abort', onAbort, { once: true });
+
+        this.bot.start({
+          drop_pending_updates: true,
+          onStart: (botInfo) => {
+            console.log(`[claw-tg-fry] Bot @${botInfo.username} started polling`);
+          },
+        }).catch((err) => {
+          console.warn('[claw-tg-fry] bot.start error:', err);
+          resolve();
+        });
+      });
+    } catch (err) {
+      this.isRunning = false;
+      console.warn('[claw-tg-fry] Failed to start bot polling:', err);
+      throw err;
+    }
   }
 
   public async stop(): Promise<void> {
