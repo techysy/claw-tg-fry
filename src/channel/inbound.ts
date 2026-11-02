@@ -65,7 +65,9 @@ export class TelegramInboundAdapter {
 
     // 监听 Inline Keyboard 回调
     this.bot.on('callback_query:data', async (ctx) => {
-      await ctx.answerCallbackQuery();
+      const { handleTelegramCallbackQuery } = await import('../messaging/callback-handler');
+      await handleTelegramCallbackQuery(ctx);
+
       if (this.options.onCallbackQuery && ctx.chat && ctx.callbackQuery.message) {
         await this.options.onCallbackQuery({
           chatId: ctx.chat.id,

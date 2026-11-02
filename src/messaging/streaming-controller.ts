@@ -4,6 +4,7 @@ import type { TypewriterScheduler } from './typewriter';
 import { renderExpandableQuote } from '../render/escape';
 import { appendMetricFooter } from '../render/footer';
 import { buildStandardActionKeyboard } from '../render/keyboard';
+import { messageStateStore } from './state-store';
 
 export interface TelegramStreamingCardParams {
   client: TelegramClient;
@@ -17,7 +18,6 @@ export interface TelegramStreamingCardParams {
 export class TelegramStreamingCardController {
   private placeholderMessageId: number | null = null;
   private currentText = '';
-  private isThinking = false;
   private reasoningText = '';
   private startTime = Date.now();
 
@@ -66,8 +66,9 @@ export class TelegramStreamingCardController {
     const finalText = finalPayload?.text || this.currentText || '已完成。';
 
     let displayContent = '';
+    // 默认完成态不直接展开思考过程，保持界面紧凑干净；依靠按钮随时展开
     if (this.reasoningText) {
-      displayContent += renderExpandableQuote(`💭 思考过程:\n${this.reasoningText}`, 'HTML') + '\n\n';
+      displayContent += `<i>💡 已包含思考推理过程（可通过下方按钮展开）</i>\n\n`;
     }
     displayContent += finalText;
 
@@ -79,7 +80,12 @@ export class TelegramStreamingCardController {
       'HTML',
     );
 
-    const keyboard = buildStandardActionKeyboard();
+    const keyboard = buildStandardActionKeyboard({
+      hasReasoning: Boolean(this.reasoningText),
+      reasoningExpanded: false,
+    });
+
+    let targetMsgId = this.placeholderMessageId;
 
     if (this.placeholderMessageId) {
       this.params.scheduler.enqueue({
@@ -92,13 +98,25 @@ export class TelegramStreamingCardController {
       });
       await this.params.scheduler.flush();
     } else {
-      await this.params.client.bot.api.sendMessage(this.params.chatId, displayContent, {
+      const sent = await this.params.client.bot.api.sendMessage(this.params.chatId, displayContent, {
         reply_parameters: this.params.replyToMessageId
           ? { message_id: this.params.replyToMessageId }
           : undefined,
         message_thread_id: this.params.threadId,
         parse_mode: 'HTML',
         reply_markup: keyboard,
+      });
+      targetMsgId = sent.message_id;
+    }
+
+    if (targetMsgId) {
+      messageStateStore.set({
+        chatId: this.params.chatId,
+        messageId: targetMsgId,
+        mainText: finalText,
+        reasoningText: this.reasoningText,
+        reasoningExpanded: false,
+        elapsedMs,
       });
     }
   }
