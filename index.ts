@@ -2,10 +2,13 @@ import type { OpenClawPluginApi } from 'openclaw/plugin-sdk/core';
 import { buildPluginConfigSchema } from 'openclaw/plugin-sdk/core';
 import { telegramPlugin } from './src/channel/plugin';
 import { PluginConfigSchema } from './src/core/config-schema';
+import { setTelegramRuntime } from './src/core/runtime-store';
 
 export { telegramPlugin } from './src/channel/plugin';
 export { TelegramClient } from './src/core/client';
 export { TypewriterScheduler } from './src/messaging/typewriter';
+export { TelegramStreamingCardController } from './src/messaging/streaming-controller';
+export { dispatchInboundTelegramMessage } from './src/messaging/dispatcher';
 export { escapeHtml, escapeMarkdownV2, renderExpandableQuote } from './src/render/escape';
 export { formatMetricFooter, appendMetricFooter } from './src/render/footer';
 export { splitMessageSmart, TELEGRAM_MAX_MESSAGE_LENGTH } from './src/render/pager';
@@ -19,8 +22,10 @@ const plugin = {
     PluginConfigSchema as unknown as Parameters<typeof buildPluginConfigSchema>[0],
   ),
   register(api: OpenClawPluginApi): void {
+    setTelegramRuntime(api.runtime);
     api.registerChannel({ plugin: telegramPlugin });
   },
 };
 
 export default plugin;
+

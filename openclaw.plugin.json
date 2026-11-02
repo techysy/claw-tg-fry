@@ -49,5 +49,12 @@
         }
       }
     }
+  },
+  "channelConfigs": {
+    "telegram": {
+      "schema": {
+        "type": "object"
+      }
+    }
   }
 }

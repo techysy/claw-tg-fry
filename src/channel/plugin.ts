@@ -112,6 +112,17 @@ export const telegramPlugin: ChannelPlugin<TelegramAccount> = {
         config,
         onUserMessage: async (evt) => {
           ctx.log?.info(`[claw-tg-fry] Received message in chat ${evt.chatId}: ${evt.text}`);
+          const { dispatchInboundTelegramMessage } = await import('../messaging/dispatcher');
+          await dispatchInboundTelegramMessage({
+            cfg: ctx.cfg,
+            config,
+            chatId: evt.chatId,
+            userId: evt.userId,
+            messageId: evt.messageId,
+            text: evt.text,
+            threadId: evt.threadId,
+            isGroup: evt.isGroup,
+          });
         },
         onCallbackQuery: async (evt) => {
           ctx.log?.info(`[claw-tg-fry] Received callback action ${evt.data} in chat ${evt.chatId}`);
